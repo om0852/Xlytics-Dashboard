@@ -32,15 +32,12 @@ app.get("/api/followers", async (req, res) => {
 
   try {
     const userClient = new TwitterApi(token);
-    const user = await userClient.v2.me();
 
-    const followers = await userClient.v2.following(user.data.id, {
-      asPaginator: true,
-      max_results: 10, // max 1000 with elevated access
-      "user.fields": ["name", "username", "profile_image_url"],
-    });
+    const user = await loggedClient.v2.me({
+        "user.fields": ["public_metrics"],
+      });
 
-    res.json({ followers: followers.data });
+    res.json({ user: user });
   } catch (err) {
     console.error("Fetch followers error:", err);
     res.status(500).json({ error: "Failed to fetch followers" });
@@ -65,7 +62,7 @@ app.get("/auth/twitter/callback", async (req, res) => {
     });
 
     const user = await loggedClient.v2.me({
-      "user.fields": ["public_metrics","most_recent_tweet_id"],
+      "user.fields": ["public_metrics"],
     });
 console.log(user)
     const username = user.data.username;
