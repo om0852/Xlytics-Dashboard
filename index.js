@@ -7,7 +7,9 @@ const port = process.env.PORT || 5000;
 
 // Store temporary auth state & verifier (in-memory or DB in prod)
 const stateStore = new Map();
-
+app.use(cors({
+    origin: 'http://localhost:3000',  // frontend URL
+  }));
 // Twitter OAuth2 client
 const twitterClient = new TwitterApi({
   clientId: process.env.CLIENT_ID,
