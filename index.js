@@ -34,7 +34,7 @@ app.get("/api/followers", async (req, res) => {
     const userClient = new TwitterApi(token);
     const user = await userClient.v2.me();
 
-    const followers = await userClient.v2.followers(user.data.id, {
+    const followers = await userClient.v2.following(user.data.id, {
       asPaginator: true,
       max_results: 10, // max 1000 with elevated access
       "user.fields": ["name", "username", "profile_image_url"],
