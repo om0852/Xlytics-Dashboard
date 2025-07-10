@@ -7,14 +7,17 @@ const port = process.env.PORT || 5000;
 
 // Store temporary auth state & verifier (in-memory or DB in prod)
 const stateStore = new Map();
-app.use(cors({
-    origin: 'http://localhost:3000',  // frontend URL
-  }));
+
 // Twitter OAuth2 client
 const twitterClient = new TwitterApi({
   clientId: process.env.CLIENT_ID,
   clientSecret: process.env.CLIENT_SECRET,
 });
+app.use(cors({
+    origin: 'http://localhost:3000',  // frontend URL
+  }));
+
+
 app.get("/", (req, res) => {
   res.json("yes i am running");
 });
@@ -34,11 +37,9 @@ app.get("/api/followers", async (req, res) => {
 
   try {
     const userClient = new TwitterApi(token);
+    const user = await userClient.v2.me();
 
-    const user = await loggedClient.v2.me({
-        "user.fields": ["public_metrics"],
-      });
-
+  
     res.json({ user: user });
   } catch (err) {
     console.error("Fetch followers error:", err);
