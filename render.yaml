@@ -6,5 +6,4 @@ services:
     buildCommand: npm install
     startCommand: node index.js
     envVars:
-    
         sync: false # set it manually from Render dashboard or keep false if using secrets

@@ -1,83 +1,66 @@
 const express = require('express');
-const session = require('express-session');
-const passport = require('passport');
-const TwitterStrategy = require('passport-twitter').Strategy;
-const cors = require('cors');
+const { TwitterApi } = require('twitter-api-v2');
 require('dotenv').config();
 
 const app = express();
+const port = process.env.PORT || 5000;
 
-// Allow React app to access the backend
-app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  credentials: true
-}));
+// Store temporary auth state & verifier (in-memory or DB in prod)
+const stateStore = new Map();
 
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: true
-}));
+// Twitter OAuth2 client
+const twitterClient = new TwitterApi({
+  clientId: process.env.CLIENT_ID,
+  clientSecret: process.env.CLIENT_SECRET,
+});
+app.get("/",(req,res)=>{
+    res.json("yes i am running")
+})
+// Step 1: Start login and redirect to Twitter
+app.get('/auth/twitter', async (req, res) => {
+  const { url, codeVerifier, state } = twitterClient.generateOAuth2AuthLink(
+    process.env.CALLBACK_URL,
+    { scope: ['tweet.read', 'users.read', 'offline.access'] }
+  );
 
-app.use(passport.initialize());
-app.use(passport.session());
-
-passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((obj, done) => done(null, obj));
-
-// Twitter Strategy
-passport.use(new TwitterStrategy({
-  consumerKey: process.env.TWITTER_CONSUMER_KEY,
-  consumerSecret: process.env.TWITTER_CONSUMER_SECRET,
-  callbackURL: process.env.CALLBACK_URL
-}, (token, tokenSecret, profile, cb) => {
-  profile.token = token;
-  profile.tokenSecret = tokenSecret;
-  return cb(null, profile);
-}));
-
-// Start Auth
-app.get('/auth/twitter', passport.authenticate('twitter'));
-
-// Callback
-app.get('/auth/twitter/callback',
-  passport.authenticate('twitter', { failureRedirect: '/' }),
-  (req, res) => {
-    res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
-  }
-);
-
-// User Info
-app.get('/api/user', (req, res) => {
-  if (!req.user) return res.status(401).json({ message: "Not Authenticated" });
-  res.json(req.user);
+  stateStore.set(state, codeVerifier);
+  res.redirect(url);
 });
 
-// Tweet Data Example
-app.get('/api/tweets', async (req, res) => {
-  if (!req.user) return res.status(401).json({ message: "Not Authenticated" });
+// Step 2: Twitter redirects back here
+app.get('/auth/twitter/callback', async (req, res) => {
+  const { state, code } = req.query;
 
-  const { TwitterApi } = require('twitter-api-v2');
-
-  const client = new TwitterApi({
-    appKey: process.env.TWITTER_CONSUMER_KEY,
-    appSecret: process.env.TWITTER_CONSUMER_SECRET,
-    accessToken: req.user.token,
-    accessSecret: req.user.tokenSecret
-  });
+  const codeVerifier = stateStore.get(state);
+  if (!codeVerifier) return res.status(400).send('Invalid state');
 
   try {
-    const tweets = await client.v2.userTimeline(req.user.id, {
-      'tweet.fields': ['public_metrics', 'created_at'],
-      max_results: 10
+    const {
+      client: loggedClient,
+      accessToken,
+      refreshToken,
+      expiresIn,
+    } = await twitterClient.loginWithOAuth2({
+      code,
+      codeVerifier,
+      redirectUri: process.env.CALLBACK_URL,
     });
-    res.json(tweets);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Twitter API error' });
+
+    const user = await loggedClient.v2.me();
+
+    // In production: save tokens in DB or session
+    return res.json({
+      user,
+      accessToken,
+      refreshToken,
+      expiresIn,
+    });
+  } catch (error) {
+    console.error('OAuth2 login error:', error);
+    return res.status(500).json({ error: 'Twitter login failed' });
   }
 });
 
-app.listen(5000, () => {
-  console.log('Server running on http://localhost:5000');
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
 });
