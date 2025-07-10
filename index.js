@@ -65,11 +65,11 @@ app.get("/auth/twitter/callback", async (req, res) => {
     });
 
     const user = await loggedClient.v2.me({
-      "user.fields": ["public_metrics"],
+      "user.fields": ["public_metrics","most_recent_tweet_id"],
     });
-
+console.log(user)
     const username = user.data.username;
-    const followers = user.data.public_metrics.followers_count;
+    const followers = user.data.public_metrics.following_count;
 
     // ✅ Redirect to local React frontend
     res.redirect(
