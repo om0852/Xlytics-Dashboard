@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: xlytics-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TWITTER_BEARER_TOKEN
+        sync: false # set it manually from Render dashboard or keep false if using secrets
